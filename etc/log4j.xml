@@ -47,7 +47,7 @@
     <!-- setup log4j's root logger -->
     <!--                           -->
     <root>
-        <level value="WARN" />
+        <level value="DEBUG" />
         <!--appender-ref ref="STDOUT" /-->
         <!--appender-ref ref="STDERR" /-->
         <appender-ref ref="FILE" />

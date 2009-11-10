@@ -20,8 +20,6 @@ object SmsD {
   private val MonitorDirectory = new File(SmsDConstant.MonitorDirectory)
   private val FetionSession = FetionFactory.getFetionSessionControl
   private val FetionMessage = FetionFactory.getFetionMessageControl
-  private val MobileNumber = "13761089478"
-  private val Password = "honnix548"
 }
 
 object Main extends Application {
@@ -30,7 +28,20 @@ object Main extends Application {
 
 class SmsD extends Actor {
   private def sendMessage(content: List[String])(f: (String) => Boolean) {
-    f(content.drop(1).mkString("\n"))
+    val message = content.drop(1).mkString("\n")
+
+    val truncatedMessage =
+      if (message.length <= 70)
+        message
+      else if (message.length <= SmsDConstant.MaxMessageLength) {
+        SmsD.FetionMessage.setLongSmsEnabled(true)
+        message
+      } else {
+          SmsD.Log.warn("Message too long, truncated.")
+          message.substring(0, SmsDConstant.MaxMessageLength)
+      }
+
+    f(truncatedMessage)
   }
 
   private def processFile(file: File) {
@@ -73,7 +84,7 @@ class SmsD extends Actor {
               SmsD.Log.debug("New sms files found.")
 
             SmsD.FetionSession.init
-            SmsD.FetionSession.login(SmsD.MobileNumber, SmsD.Password)
+            SmsD.FetionSession.login(SmsDConstant.MobileNumber, SmsDConstant.Password)
 
             if (SmsD.Log.isDebugEnabled)
               SmsD.Log.debug("Fetion login successfully.")

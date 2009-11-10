@@ -27,7 +27,7 @@ object Main extends Application {
 }
 
 class SmsD extends Actor {
-  private def sendMessage(content: List[String])(f: (String) => Boolean) {
+  private def sendMessage(content: List[String])(f: (String) => Boolean) = {
     val message = content.drop(1).mkString("\n")
 
     val truncatedMessage =
@@ -52,21 +52,21 @@ class SmsD extends Actor {
     if (SmsD.Log.isDebugEnabled)
       SmsD.Log.debug("Sms file content: " + content.toString)
 
-    content.head match {
+    val result = content.head match {
       case "@self" =>
         sendMessage(content) {
           SmsD.FetionMessage.sendSmsToSelf
         }
-        file.delete
       case Receiver(who) =>
         sendMessage(content) {
           SmsD.FetionMessage.sendSmsByMobileNumber(who, _)
         }
-        file.delete
       case _ =>
         SmsD.Log.warn("Sms file content is not valid.")
-        file.renameTo(new File(file.getAbsolutePath + ".bad"))
+        false
     }
+
+    if (result) file.delete else file.renameTo(new File(file.getAbsolutePath + ".bad"))
   }
 
   def act {
@@ -83,22 +83,25 @@ class SmsD extends Actor {
             if (SmsD.Log.isDebugEnabled)
               SmsD.Log.debug("New sms files found.")
 
-            SmsD.FetionSession.init
-            SmsD.FetionSession.login(SmsDConstant.MobileNumber, SmsDConstant.Password)
+            if (SmsD.FetionSession.init) {
+              if (SmsD.FetionSession.login(SmsDConstant.MobileNumber,
+                                           SmsDConstant.Password)) {
+                if (SmsD.Log.isDebugEnabled)
+                  SmsD.Log.debug("Fetion login successfully.")
+                
+                files.foreach{
+                  processFile
+                }
+              
+                SmsD.FetionSession.logout
+              } else SmsD.Log.warn("Fetion login failed.")
 
-            if (SmsD.Log.isDebugEnabled)
-              SmsD.Log.debug("Fetion login successfully.")
-            
-            files.foreach{
-              processFile
-            }
-
-            SmsD.FetionSession.logout
-            SmsD.FetionSession.closeNetwork
-            SmsD.FetionSession.terminate
-
-            if (SmsD.Log.isDebugEnabled)
-              SmsD.Log.debug("Fetion terminate successfully.")
+              SmsD.FetionSession.closeNetwork
+              SmsD.FetionSession.terminate
+                
+              if (SmsD.Log.isDebugEnabled)
+                SmsD.Log.debug("Fetion terminate successfully.")
+            } else SmsD.Log.warn("Fetion init failed.")
           }
       }
     }
